@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Galaxy Shooter</title>
+  <style>
+    body { margin:0; background:black; overflow:hidden; }
+    canvas { display:block; margin:0 auto; background:black; }
+    #score { color:white; font-family:sans-serif; position:absolute; top:10px; left:10px; font-size:20px;}
+    #gameOver { 
+      position:absolute; top:200px; left:50%; transform:translateX(-50%); 
+      color:white; font-family:sans-serif; font-size:30px; display:none; text-align:center;
+    }
+  </style>
+</head>
+<body>
+<div id="score">Score:0</div>
+<div id="gameOver">
+  Game Over!<br>
+  Press 'R' to Restart
+</div>
+<canvas id="gameCanvas" width="300" height="500"></canvas>
+
+<script>
+let canvas = document.getElementById("gameCanvas");
+let ctx = canvas.getContext("2d");
+let scoreDiv = document.getElementById("score");
+let gameOverDiv = document.getElementById("gameOver");
+
+let player, bullets, enemies, score;
+let lastFireTime;
+const fireRate = 1000;
+let playerLineY;
+let gameRunning = true;
+
+// Keyboard controls
+let keys = {};
+document.addEventListener("keydown", (e)=> keys[e.code] = true);
+document.addEventListener("keyup", (e)=> keys[e.code] = false);
+
+// Initialize game
+function initGame(){
+    player = {x: 140, y: 450, width: 20, height: 20};
+    bullets = [];
+    enemies = [];
+    score = 0;
+    lastFireTime = 0;
+    playerLineY = player.y - 10;
+    gameRunning = true;
+    gameOverDiv.style.display = "none";
+    scoreDiv.innerText = "Score:0";
+}
+
+initGame();
+
+// Spawn enemies every 1.5 sec
+setInterval(() => {
+    if(gameRunning){
+        let ex = Math.floor(Math.random() * (canvas.width - 20));
+        enemies.push({x:ex, y:0, width:20, height:20});
+    }
+}, 1500);
+
+function update(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    if(gameRunning){
+        // Move player
+        if(keys["ArrowLeft"]) player.x -= 10;
+        if(keys["ArrowRight"]) player.x += 10;
+        if(keys["Space"] && (Date.now() - lastFireTime >= fireRate)){
+            bullets.push({x: player.x+8, y: player.y-10, width:4, height:10});
+            lastFireTime = Date.now();
+        }
+
+        if(player.x < 0) player.x = 0;
+        if(player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+
+        // Draw player
+        ctx.fillStyle="white";
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+
+        // Draw player line
+        ctx.strokeStyle = "white";
+        ctx.beginPath();
+        ctx.moveTo(0, playerLineY);
+        ctx.lineTo(canvas.width, playerLineY);
+        ctx.stroke();
+
+        // Draw bullets
+        ctx.fillStyle="yellow";
+        for(let i=0; i<bullets.length; i++){
+            let b = bullets[i];
+            ctx.fillRect(b.x, b.y, b.width, b.height);
+            b.y -= 10;
+            if(b.y < 0) bullets.splice(i,1);
+        }
+
+        // Draw enemies
+        ctx.fillStyle="red";
+        for(let i=0; i<enemies.length; i++){
+            let e = enemies[i];
+            ctx.fillRect(e.x, e.y, e.width, e.height);
+            e.y += 2;
+
+            // Collision with bullets
+            for(let j=0; j<bullets.length; j++){
+                let b = bullets[j];
+                if(b.x < e.x + e.width && b.x + b.width > e.x &&
+                   b.y < e.y + e.height && b.y + b.height > e.y){
+                    bullets.splice(j,1);
+                    enemies.splice(i,1);
+                    i--;
+                    score++;
+                    scoreDiv.innerText = "Score:" + score;
+                    break;
+                }
+            }
+
+            // Enemy cross player line → game over
+            if(e.y + e.height >= playerLineY){
+                gameRunning = false;
+                gameOverDiv.style.display = "block";
+            }
+
+            // Enemy reach bottom
+            if(e.y > canvas.height){
+                enemies.splice(i,1);
+                i--;
+            }
+        }
+    }
+
+    // Restart check
+    if(!gameRunning && keys["KeyR"]){
+        initGame();
+    }
+
+    requestAnimationFrame(update);
+}
+
+update();
+</script>
+</body>
+</html>
